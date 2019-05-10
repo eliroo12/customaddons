@@ -1,0 +1,8 @@
+<?xml version="1.1" ?>
+<settings>
+    <global>
+        <gearswap>true</gearswap>
+        <x>900</x>
+        <y>600</y>
+    </global>
+</settings>
