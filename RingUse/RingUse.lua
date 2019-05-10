@@ -27,6 +27,8 @@ running = false
 proceed = false
 tp = false
 currentsender = false
+renablenow = false
+renablecount = 0
 useringat = 0
 ringcommand = ''
 ringbeingused=''
@@ -70,7 +72,7 @@ RingDetails = { -- Manually defined ring activation
 
 function use(ringlist, sent) --main function. sent is only given if the sentuse command is used
 	
-	local echotext = '' --generating echo text to identify other character issues
+	local echotext = 'input /echo ' --generating echo text to identify other character issues
 	if send.value then -- Send command to all
 		currentsender = true --flag to skip the sentuse command to avoid overflow
 		windower.send_command(sendcom..'ring sentuse '..ringlist) --Send command to other consoles. Requires that the add on be loaded
@@ -113,11 +115,19 @@ function use(ringlist, sent) --main function. sent is only given if the sentuse 
 	if ringlist == 'Teleport Ring' then goingtoenter = true else goingtoenter = false end -- sets up logic for reisenjima teleport
 	usingring = true -- set value for prender to check
 	useringat = os.clock() + ringtimer --set time to trigger
-	ringcommand = 'input /item "'..ring..'"'..target --command for using the ring
+	ringcommand = '/item "'..ring..'"'..target --command for using the ring
 	ringbeingused = ring -- set global value
 end
 
 function useit()
+
+	if renablenow and settings.gearswap and renablecount >= 500 then --Checks for Ring renabling
+		windower.send_command('gs enable ring1') 
+		renablecount = 0
+		renablenow = false
+	elseif renablenow and settings.gearswap then
+		renablecount = renablecount + 1
+	end
 
 	if enterarea then --Checks if you zone into reisenjima area
 		attempts = attempts + 1 --Adds to timeout 
@@ -133,13 +143,14 @@ function useit()
 	
 	if not usingring then  --returns if we aren't using a ring
 		return 
-	elseif os.clock() <= useringat then --returns if it isn't time
+	elseif usingring and os.clock() <= useringat then --returns if it isn't time
 		return
-	else
+	elseif usingring then
 		windower.chat.input(ringcommand) --sends ring input
 		if goingtoenter then enterarea = true goingtoenter = false end  --Flags that the ring is used and we are ready to movetozone
 		reset()
-		if settings.gearswap then windower.send_command('gs enable ring1') end -- Reenables ring
+		renablenow = true
+	--	if settings.gearswap then windower.send_command('gs enable ring1') end -- Reenables ring
 	end
 	
 end
