@@ -13,14 +13,13 @@ extdata = require('extdata')
 packets = require('packets')
 config = require('config')
 
-settings = config.load({gearswap=false,x=500,y=500})
+settings = config.load({gearswap=false,x=500,y=500}) --Import settings with defined defaults
 
-sendcom = 'send @all '
-gearswapdisable='gs disable ring1;'
-gearswapenable='gs enable ring1;'
-target = ' <me>'
+sendcom = 'send @all ' --quick text for the sendall command
+target = ' <me>' --quick text for ring target.
 send = M(false, 'Send Command')
 
+------- Defining variables for use in GS, do not tamper ----
 usingring = false
 goingtoenter = false
 enterarea = false
@@ -32,11 +31,11 @@ useringat = 0
 ringcommand = ''
 ringbeingused=''
 attempts = 0
+----------------------------------------------------------------------
 
 
-Rings = M{['description']='AllRings', 'Warp Ring', 'Teleport Ring', 'EXP Ring', 'CP Ring', 'Emporox'}
-Ringlist = M{['description']='AllRings','None', 'Warp Ring', 'Teleport Ring', 'EXP Ring', 'CP Ring', 'Emporox'}
-RingGroups = {
+Ringlist = M{['description']='AllRings','None', 'Warp Ring', 'Teleport Ring', 'EXP Ring', 'CP Ring', 'Emporox'} -- Builds list of Ring types
+RingGroups = { --Generates ring groups. This also determines the order it searches for rings, move around to set priority if desired
 ['Warp Ring'] = M{['description']='Warp Rings', 'Warp Ring'},
 ['EXP Ring'] = M{['description']='EXP Rings', 'Echad Ring','Caliber Ring','Emperor Band', 'Empress Band', 'Chariot Band', 'Resolution Ring', 'Allied Ring', 'Kupofried\'s Ring'},
 ['CP Ring'] = M{['description']='CP Rings','Trizek Ring','Endorsement Ring','Facility Ring','Capacity Ring','Vocation Ring',},
@@ -45,7 +44,7 @@ RingGroups = {
 }
 
 
-RingImages = {
+RingImages = { --Defines ring Images
   ['None'] = {img='None.png'},
   ['Warp Ring'] ={img='WarpRing.png'},
   ['Teleport Ring'] = {img='Holla.png', act = 8},
@@ -54,7 +53,7 @@ RingImages = {
   ['Emporox'] = {img='Trizek.png'},
   }
   
-RingDetails = {
+RingDetails = { -- Manually defined ring activation
   ['None'] = {act = 10},
   ['Warp Ring'] ={act = 8},
   ['Dim. Ring (Holla)'] = {act = 8},
@@ -69,25 +68,25 @@ RingDetails = {
   
   }
 
-function use(ringlist, sent)
+function use(ringlist, sent) --main function. sent is only given if the sentuse command is used
 	
-	local echotext = 'input /echo '
+	local echotext = '' --generating echo text to identify other character issues
 	if send.value then -- Send command to all
-		currentsender = true
-		windower.send_command(sendcom..'ring sentuse '..ringlist)
-		echotext = sendcom..'input /echo '..windower.ffxi.get_mob_by_target('me').name..': '
+		currentsender = true --flag to skip the sentuse command to avoid overflow
+		windower.send_command(sendcom..'ring sentuse '..ringlist) --Send command to other consoles. Requires that the add on be loaded
+		echotext = sendcom..'input /echo '..windower.ffxi.get_mob_by_target('me').name..': ' --Refine Echotext to identify the character with the problem
 	end
 	
-	if sent then 
+	if sent then  -- otherconsole sets echotext here
 		echotext = sendcom..'input /echo '..windower.ffxi.get_mob_by_target('me').name..': '
 	end
 
-	if ringlist == 'None' then reset() return end
+	if ringlist == 'None' then reset() return end --Returns if ringlist value is None
 	
-	local bestring = determinebestring(ringlist)
+	local bestring = determinebestring(ringlist) --Determines the best ring to use for the list given
 	
-	if not bestring[1] then	--Check inventory for ring
-		if bestring[2] == 2 then
+	if not bestring[1] then	--For logging errors.
+		if bestring[2] == 2 then -- 2 is returned if its not found inventory
 			windower.send_command(echotext..ringlist..' is either not in your inventory or hasn\'t been loaded')
 			reset()
 		else
@@ -96,8 +95,8 @@ function use(ringlist, sent)
 		end
 		return
 	end
-	ring = bestring[1]
-	if RingDetails[ring] then
+	local ring = bestring[1] -- Set ring for easier calling
+	if RingDetails[ring] then --Generators activation time from table or defaults to 10
 		ringtimer =  RingDetails[ring].act + 2
 	else
 		ringtimer = 10
@@ -110,42 +109,42 @@ function use(ringlist, sent)
 	
 
 	
-	windower.send_command('input /equip ring1 "'..ring..'"')
-	if ringlist == 'Teleport Ring' then goingtoenter = true else goingtoenter = false end
+	windower.chat.input('/equip ring1 "'..ring..'"')  --Puts ring on
+	if ringlist == 'Teleport Ring' then goingtoenter = true else goingtoenter = false end -- sets up logic for reisenjima teleport
 	usingring = true -- set value for prender to check
 	useringat = os.clock() + ringtimer --set time to trigger
 	ringcommand = 'input /item "'..ring..'"'..target --command for using the ring
-	ringbeingused = ring
+	ringbeingused = ring -- set global value
 end
 
 function useit()
 
-	if enterarea then
-		attempts = attempts + 1
+	if enterarea then --Checks if you zone into reisenjima area
+		attempts = attempts + 1 --Adds to timeout 
 		local info = windower.ffxi.get_info()
 		local zone = res.zones[info.zone].name
-		if zone == 'La Theine Plateau' or zone == 'Konschtat Highlands' or zone == 'Tahrongi Canyon' then
+		if zone == 'La Theine Plateau' or zone == 'Konschtat Highlands' or zone == 'Tahrongi Canyon' then --If you used a teleport ring and are in the teleport zone beging reisenjima movement
 			movetozone()
-		elseif attempts > 3000 then 
+		elseif attempts > 3000 then --Times out after 3000 frames if zone is never found
 			enterarea = false
 			attempts = 0
 		end		
 	end
 	
-	if not usingring then 
+	if not usingring then  --returns if we aren't using a ring
 		return 
-	elseif os.clock() <= useringat then
+	elseif os.clock() <= useringat then --returns if it isn't time
 		return
 	else
-		windower.send_command(ringcommand)
-		if goingtoenter then enterarea = true goingtoenter = false end
+		windower.chat.input(ringcommand) --sends ring input
+		if goingtoenter then enterarea = true goingtoenter = false end  --Flags that the ring is used and we are ready to movetozone
 		reset()
-		if settings.gearswap then windower.send_command('gs enable ring1') end
+		if settings.gearswap then windower.send_command('gs enable ring1') end -- Reenables ring
 	end
 	
 end
 
-function checkinventory(ring)
+function checkinventory(ring) -- Goes things inventory to find ring. Returns the bag its in, index and what the item ID is
 	-- 0, 8 , 10, 11, 12
 	local inventory = windower.ffxi.get_items(0)
 	local wardrobe1 = windower.ffxi.get_items(8)
@@ -195,7 +194,7 @@ function checkinventory(ring)
 	return false
 end
 
-function checkcooldown(ring)
+function checkcooldown(ring) --checks to see if the ring is in inventory and if its on cooldown.
 	local bagval = checkinventory(ring)
 	if not bagval then return {false, 2} end
 	local itemtable = windower.ffxi.get_items(bagval[1], bagval[2])
@@ -211,7 +210,7 @@ function checkcooldown(ring)
 	end
 end
 
-function determinebestring(ringlist)
+function determinebestring(ringlist) --Loop to determine best ring in list to use
 	
 	if not RingGroups[ringlist] then print('Verify Ring Groups') return end
 	local checkrecast = {}
@@ -225,7 +224,7 @@ function determinebestring(ringlist)
 	
 end
 
-function reset()
+function reset() --Resets ringlist value and other variables
 
 	Ringlist:set('None')
 	useringat=0
@@ -234,12 +233,13 @@ function reset()
 
 end
 
-function buildUI()
+function buildUI() -- builds UI
 
 	local ri = {}
-	for i,v in ipairs(Ringlist) do
-		ri[i] = {img=RingImages[v].img, value=v}
-	end
+    local ri = {}
+    for i,v in ipairs(Ringlist) do
+        ri[i] = {img=RingImages[v].img, value=v, tooltip=v}
+    end
 	
 	RingSelect = IconButton{
 		x = settings.x + 0,
@@ -263,13 +263,13 @@ function buildUI()
 	
 	end
 
-function redrawUI()
+function redrawUI() -- Redraws UI
 	RingSelect:undraw()
 	SendToggle:undraw()
 	buildUI()
 end
 
-function movetozone()
+function movetozone() --Reisenjima Logic, took this from Quetzlua (Thanks!)
 	local me = windower.ffxi.get_mob_by_target('me')
 	tp = windower.ffxi.get_mob_by_name('Dimensional Portal')
 	if tp and math.sqrt(tp.distance) > 3 and not running then
@@ -290,26 +290,26 @@ function movetozone()
 	
 end
 
-function trim(s)
+function trim(s) --trim function
    return (s:gsub("^%s*(.-)%s*$", "%1"))
 end
 
-windower.register_event('prerender', useit)
+windower.register_event('prerender', useit) --checks prerender for ring usage
 
-windower.register_event('zone change', function(new, old)
+windower.register_event('zone change', function(new, old) --Verifys zone change to force the Reisenjima timeout
 	if enterarea then
 		local zone = res.zones[new].name
 		if not (zone == 'La Theine Plateau' or zone == 'Konschtat Highlands' or zone == 'Tahrongi Canyon') then enterarea = false end
 	end	
 end)
 
-windower.register_event('addon command', function(...)
+windower.register_event('addon command', function(...) --Commands
 	local args = T{...}
 	local cmd = args[1]:lower()
 	args:remove(1)
-	if cmd == 'sentuse' then
+	if cmd == 'sentuse' then -- used by the addon to send to other users
 		local argsend = ''
-		for i, v in ipairs(args) do
+		for i, v in ipairs(args) do -- combines arguments and trims
 			argsend = argsend..v..' '
 		end
 			argsend = trim(argsend)
@@ -318,11 +318,11 @@ windower.register_event('addon command', function(...)
 		else
 			currentsender = false
 		end
-	elseif cmd == 'gs' then
+	elseif cmd == 'gs' then -- Update gearswap setting
 		settings.gearswap = not settings.gearswap
 		windower.send_command('input /echo settings.gearswap set to '..tostring(settings.gearswap))
 		config.save(settings,windower.ffxi.get_mob_by_target('me').name)
-	elseif cmd == 'pos' then
+	elseif cmd == 'pos' then -- Update Addon position
 	
 		if not tonumber(args[1]) or not tonumber(args[2]) then
 			print('Invalid arguments') 
@@ -337,7 +337,7 @@ windower.register_event('addon command', function(...)
 	
 	end)
 
-windower.register_event('incoming chunk',function(id,data,modified,injected,blocked)
+windower.register_event('incoming chunk',function(id,data,modified,injected,blocked) --Reisenjima logic, thanks Quetz lua!!
 	local player = windower.ffxi.get_player()
 	local me = windower.ffxi.get_mob_by_target('me')
 	local zone_id = windower.ffxi.get_info().zone
